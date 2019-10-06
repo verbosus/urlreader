@@ -22,8 +22,8 @@ def callback(url, data, error):
     """URLReader prototype callback
 
     By providing a function with the same signature as this to URLReader.fetch(),
-    code can be notified when the background URL fetching operation has been 
-    completed and manipulate the resulting data. The callback will be called 
+    code can be notified when the background URL fetching operation has been
+    completed and manipulate the resulting data. The callback will be called
     on the main thread.
     """
     raise NotImplementedError
@@ -33,10 +33,19 @@ class URLReader(object):
     """A wrapper around macOS’s NSURLSession, etc.
 
     All URL reading operations execute in a background thread and return the
-    URL contents to an asynchronous callback on the main thread. URLReader
-    also comes with an optional, persistent, custom on-disk cache because I
-    couldn’t figure out how to make either NSCache or NSURLCache persist
-    across app restarts.
+    URL contents to an asynchronous callback on the main thread.
+
+    URLReader also comes with an optional, persistent, custom on-disk cache.
+    NSURLSession and NSURLCache *almost* do everything we want. I spent a bit
+    of time with both, and... almost. This project originated from an app that
+    needs to download a bunch of data, store some of it on-disk so it’s
+    available offline and treat the rest with normal HTTP caching policies.
+
+    Which is all fine until we hit data that’s hosted on GitHub. GitHub is
+    (understandably) quite aggressive with their cache headers for raw
+    files (i.e. they set them Cache-Control: no-cache) and they don’t return
+    the standard 200 HTTP response code, so NSURLSession and NSURLCache get
+    confused and refuse to cache some of the data we get from there.
     """
 
     def __init__(self, timeout=10,
