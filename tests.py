@@ -185,6 +185,12 @@ class URLReaderTest(MockServerTest):
             reader.fetch(url, self._test_multiple_urls_callback)
         while not reader.done: continue_runloop()
 
+    def test_redirect(self):
+        # yes, of course you can also use a lambda as the callback
+        reader = URLReader().fetch(MOCK_SERVER_URL + '/redirect',
+            lambda url, data, error: self.assertEqual(
+                str(url), MOCK_SERVER_URL + '/after-redirect'))
+
 
 class CachingURLReaderTest(MockServerTest):
 
@@ -254,19 +260,6 @@ class CachingURLReaderTest(MockServerTest):
         while not reader.done: continue_runloop()
 
         self._test_server_reset_count()
-        reader.flush_cache()
-
-    def _redirect_with_persistent_cache_callback(self, url, data, error):
-        self.assertEqual(str(url), MOCK_SERVER_URL + '/after-redirect')
-        self.assertEqual('You’ve been redirected', decode_data(data))
-
-    def test_redirect_with_persistent_cache(self):
-        reader = URLReader(
-            use_cache=True,
-            cache_location=TEMP_URLREADER_CACHE,
-        )
-        reader.fetch(MOCK_SERVER_URL + '/redirect',
-            self._redirect_with_persistent_cache_callback)
         reader.flush_cache()
 
 
@@ -341,6 +334,12 @@ class CacheTest(unittest.TestCase):
 
     def test_cache_miss(self):
         self.assertEqual(self.cache.get('foo'), None)
+
+    def test_cache_invalidate(self):
+        self.cache.set('foo', b'some data')
+        self.assertEqual(self.cache.get('foo'), b'some data')
+        self.cache.delete('foo')
+        self.assertEqual(self.cache.get('foo', None), None)
 
 
 if __name__ == '__main__':
