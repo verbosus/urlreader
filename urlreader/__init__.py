@@ -117,7 +117,8 @@ class Cache(object):
     def flush(self):
         with threading.Lock():
             if self.cache_path.exists():
-                _ = [x.unlink() for x in self.cache_path.iterdir() if x.is_file()]
+                for x in self.cache_path.iterdir():
+                    if x.is_file(): x.unlink()
                 self.cache_path.rmdir()
 
     def _atomic_write(self, data, path):
