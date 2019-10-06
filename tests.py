@@ -5,7 +5,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from Foundation import NSThread, NSMutableData
 
-from urlreader import URLReader, Cache
+from urlreader import URLReader
 from urlreader.utils import callback, decode_data, continue_runloop
 
 
@@ -81,6 +81,14 @@ class MockServerTest(unittest.TestCase):
         # tear down the server
         if cls.server.is_alive():
             cls.server.terminate()
+
+    def setUp(self):
+        reader = URLReader()
+        reader._reader.flushCache()
+
+    def tearDown(self):
+        reader = URLReader()
+        reader._reader.flushCache()
 
 
 class URLReaderTest(MockServerTest):
@@ -185,6 +193,12 @@ class URLReaderTest(MockServerTest):
             reader.fetch(url, self._test_multiple_urls_callback)
         while not reader.done: continue_runloop()
 
+    def test_redirect(self):
+        # yes, of course you can also use a lambda as the callback
+        reader = URLReader().fetch(MOCK_SERVER_URL + '/redirect', 
+            lambda url, data, error: self.assertEqual(
+                str(url), MOCK_SERVER_URL + '/after-redirect'))
+
 
 class CachingURLReaderTest(MockServerTest):
 
@@ -205,7 +219,6 @@ class CachingURLReaderTest(MockServerTest):
         while not reader.done: continue_runloop()
 
     def test_transient_cache(self):
-        # first, test the cache
         reader = URLReader()
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
             self._test_cache_assert_1_callback)
@@ -217,6 +230,15 @@ class CachingURLReaderTest(MockServerTest):
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
             self._test_cache_assert_1_callback)
         while not reader.done: continue_runloop()
+
+        # bust the cache again...
+        reader._reader.flushCache()
+        # ...so the third request will hit the server
+        reader.fetch(MOCK_SERVER_URL + '/count/increment',
+            self._test_cache_assert_2_callback)
+        while not reader.done: continue_runloop()
+
+        # reset the count at the end of the test
         self._test_server_reset_count()
 
     def test_persistent_cache(self):
@@ -238,35 +260,21 @@ class CachingURLReaderTest(MockServerTest):
         )
         while not reader.done: continue_runloop()
 
-        # this will hit the server and should return 1 
+        # this will hit the server and should return 1
         # because the previous increment call didn’t actually execute
         reader.fetch(MOCK_SERVER_URL + '/count/current',
             self._test_cache_assert_1_callback,
         )
         while not reader.done: continue_runloop()
 
-        # this would hit the server but doesn’t
-        # it’s getting caught by the standard HTTP caching machinery
+        # this invalidates the cache, and thus hits the server 
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback,
+            self._test_cache_assert_2_callback,
             invalidate_cache=True,
         )
         while not reader.done: continue_runloop()
 
         self._test_server_reset_count()
-        reader.flush_cache()
-
-    def _redirect_with_persistent_cache_callback(self, url, data, error):
-        self.assertEqual(str(url), MOCK_SERVER_URL + '/after-redirect')
-        self.assertEqual('You’ve been redirected', decode_data(data))
-
-    def test_redirect_with_persistent_cache(self):
-        reader = URLReader(
-            use_cache=True,
-            cache_location=TEMP_URLREADER_CACHE,
-        )
-        reader.fetch(MOCK_SERVER_URL + '/redirect',
-            self._redirect_with_persistent_cache_callback)
         reader.flush_cache()
 
 
@@ -278,69 +286,50 @@ class OfflineURLReaderTest(unittest.TestCase):
     because the responses are coming from the cache.
     """
 
-    def _test_offline_cache_callback(self, url, data, error):
-        self.assertTrue('hello' in decode_data(data))
-
-    def test_offline_cache(self):
-        reader = URLReader(
+    def setUp(self):
+        self.reader = URLReader(
             use_cache=True,
             cache_location=TEMP_URLREADER_CACHE,
         )
+        self.reader.flush_cache()
 
-        # normally, /count/increment would return some number
-        # but we make it return a string instead to make sure
-        # this value comes from our cache
-        reader.cache.set(MOCK_SERVER_URL + '/count/increment', b'hello')
+    def tearDown(self):
+        self.reader.flush_cache()
 
-        reader.fetch(MOCK_SERVER_URL + '/count/increment',
+    def _test_offline_cache_callback(self, url, data, error):
+        self.assertEqual('hello', decode_data(data))
+
+    def test_offline_cache(self):
+        # set the cache to respond to an arbitrary, non-existent URL
+        self.reader.set_cache(MOCK_SERVER_URL + '/non-existent', b'hello')
+        self.reader.fetch(MOCK_SERVER_URL + '/non-existent',
             self._test_offline_cache_callback,
         )
-        while not reader.done: continue_runloop()
-        reader.cache.flush()
+        while not self.reader.done: continue_runloop()
 
     def _test_force_https_callback(self, url, data, error):
         self.assertEqual('Hello, https', decode_data(data))
+        self.assertTrue(error == None)
 
     def test_force_https(self):
         # Okay, so here’s a roundabout way of testing that our force_https
         # does what we want it to do. Instead of running a full SSL server
         # in Python, which is possible but a little cumbersome, we populate
-        # the persistent cache with an entry for the httpS server URL, then 
-        # we ask our URLReader to read the http URL but with force_https, 
+        # the persistent cache with an entry for the http*s* server URL, then
+        # we ask our URLReader to read the http URL but with force_https,
         # which will promote http to https, which will make it hit the cache!
-        reader = URLReader(
-            force_https=True,
-            use_cache=True,
-            cache_location=TEMP_URLREADER_CACHE
-        )
-        reader.cache.set(
-            f'https://{MOCK_SERVER_ADDRESS}:{MOCK_SERVER_PORT}/',
+        # I know... right?!
+        self.reader._force_https = True
+        self.reader.set_cache(
+            f'https://{MOCK_SERVER_ADDRESS}:{MOCK_SERVER_PORT}/https',
             b'Hello, https',
         )
 
-        # this is an http URL, right? 
-        reader.fetch(MOCK_SERVER_URL + '/',
+        # this is an http URL, right?
+        self.reader.fetch(MOCK_SERVER_URL + '/https',
             self._test_force_https_callback,
         )
-        while not reader.done: continue_runloop()
-        reader.cache.flush()
-
-
-class CacheTest(unittest.TestCase):
-
-    def setUp(self):
-        self.cache = Cache(
-            cache_location=TEMP_URLREADER_CACHE)
-
-    def tearDown(self):
-        self.cache.flush()
-
-    def test_cache_hit(self):
-        self.cache.set('foo', b'some data')
-        self.assertEqual(self.cache.get('foo'), b'some data')
-
-    def test_cache_miss(self):
-        self.assertEqual(self.cache.get('foo'), None)
+        while not self.reader.done: continue_runloop()
 
 
 if __name__ == '__main__':
