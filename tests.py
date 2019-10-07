@@ -106,46 +106,44 @@ class URLReaderTest(MockServerTest):
         self.assertEqual(decode_data(data), 'Hello, world')
 
     def test_simple_url_fetch(self):
-        reader = URLReader()
-        reader.fetch(MOCK_SERVER_URL, self._test_simple_url_fetch_callback)
-        while not reader.done: continue_runloop()
+        reader = URLReader(wait_until_done=True)
+        reader.fetch(
+            MOCK_SERVER_URL, 
+            self._test_simple_url_fetch_callback,
+        )
 
     def _test_simple_url_with_path_callback(self, url, data, error):
         self.assertEqual(decode_data(data), 'Hello, Ada!')
 
     def test_simple_url_with_path_fetch(self):
-        reader = URLReader()
+        reader = URLReader(wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/hello/Ada', 
             self._test_simple_url_with_path_callback)
-        while not reader.done: continue_runloop()
 
     def _test_quoted_path_callback(self, url, data, error):
         self.assertEqual(decode_data(data), 'Hello, Mickey%20Mouse!')
 
     def test_quoted_path(self):
-        reader = URLReader()
+        reader = URLReader(wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse', 
             self._test_quoted_path_callback)
-        while not reader.done: continue_runloop()
 
     def _test_unquoted_path_callback(self, url, data, error):
         self.assertEqual(error.localizedDescription(), 'unsupported URL')
 
     def test_unquoted_path(self):
-        reader = URLReader(quote_url_path=False)
+        reader = URLReader(quote_url_path=False, wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse', 
             self._test_unquoted_path_callback)
-        while not reader.done: continue_runloop()
 
     def _test_bogus_url_callback(self, url, data, error):
         # the call timed out and we have an error
         self.assertTrue(error is not None)
 
     def test_bogus_url(self):
-        reader = URLReader(timeout=0.1)
+        reader = URLReader(timeout=0.1, wait_until_done=True)
         reader.fetch("https://www.doesnot-exist.forsure-xxx/",
             self._test_bogus_url_callback)
-        while not reader.done: continue_runloop()
 
     def _test_timeout_request_callback(self, url, data, error):
         # the call timed out and we have an error...
@@ -155,10 +153,9 @@ class URLReaderTest(MockServerTest):
 
     def test_timeout_request(self):
         # set the timeout to some tiny amount
-        reader = URLReader(timeout=0.2)
+        reader = URLReader(timeout=0.2, wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/slow', 
             self._test_timeout_request_callback)
-        while not reader.done: continue_runloop()
 
     def _test_multiple_urls_callback(self, url, data, error):
         self._multiple_urls_data.appendData_(data)
@@ -195,7 +192,8 @@ class URLReaderTest(MockServerTest):
 
     def test_redirect(self):
         # yes, of course you can also use a lambda as the callback
-        reader = URLReader().fetch(MOCK_SERVER_URL + '/redirect', 
+        reader = URLReader(wait_until_done=True).fetch(
+            MOCK_SERVER_URL + '/redirect', 
             lambda url, data, error: self.assertEqual(
                 str(url), MOCK_SERVER_URL + '/after-redirect'))
 
@@ -213,30 +211,26 @@ class CachingURLReaderTest(MockServerTest):
 
     def _test_server_reset_count(self):
         # reset the test server count
-        reader = URLReader()
+        reader = URLReader(wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/count/reset',
             self._test_cache_assert_0_callback)
-        while not reader.done: continue_runloop()
 
     def test_transient_cache(self):
-        reader = URLReader()
+        reader = URLReader(wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
             self._test_cache_assert_1_callback)
-        while not reader.done: continue_runloop()
 
         # This second call won’t actually hit the server
         # because it’s respecting the HTTP caching headers.
         # Thanks, NSURLRequestUseProtocolCachePolicy!
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
             self._test_cache_assert_1_callback)
-        while not reader.done: continue_runloop()
 
         # bust the cache again...
         reader._reader.flushCache()
         # ...so the third request will hit the server
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
             self._test_cache_assert_2_callback)
-        while not reader.done: continue_runloop()
 
         # reset the count at the end of the test
         self._test_server_reset_count()
@@ -245,34 +239,27 @@ class CachingURLReaderTest(MockServerTest):
         reader = URLReader(
             use_cache=True,
             cache_location=TEMP_URLREADER_CACHE,
+            wait_until_done=True,
         )
 
         # hit the server, first
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback,
-        )
-        while not reader.done: continue_runloop()
+            self._test_cache_assert_1_callback)
 
         # this second call won’t actually hit the server
         # because it’s coming from the persistent cache
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback,
-        )
-        while not reader.done: continue_runloop()
+            self._test_cache_assert_1_callback)
 
         # this will hit the server and should return 1
         # because the previous increment call didn’t actually execute
         reader.fetch(MOCK_SERVER_URL + '/count/current',
-            self._test_cache_assert_1_callback,
-        )
-        while not reader.done: continue_runloop()
+            self._test_cache_assert_1_callback)
 
         # this invalidates the cache, and thus hits the server 
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
             self._test_cache_assert_2_callback,
-            invalidate_cache=True,
-        )
-        while not reader.done: continue_runloop()
+            invalidate_cache=True)
 
         self._test_server_reset_count()
         reader.flush_cache()
@@ -290,6 +277,7 @@ class OfflineURLReaderTest(unittest.TestCase):
         self.reader = URLReader(
             use_cache=True,
             cache_location=TEMP_URLREADER_CACHE,
+            wait_until_done=True,
         )
         self.reader.flush_cache()
 
@@ -303,9 +291,7 @@ class OfflineURLReaderTest(unittest.TestCase):
         # set the cache to respond to an arbitrary, non-existent URL
         self.reader.set_cache(MOCK_SERVER_URL + '/non-existent', b'hello')
         self.reader.fetch(MOCK_SERVER_URL + '/non-existent',
-            self._test_offline_cache_callback,
-        )
-        while not self.reader.done: continue_runloop()
+            self._test_offline_cache_callback)
 
     def _test_force_https_callback(self, url, data, error):
         self.assertEqual('Hello, https', decode_data(data))
@@ -327,9 +313,7 @@ class OfflineURLReaderTest(unittest.TestCase):
 
         # this is an http URL, right?
         self.reader.fetch(MOCK_SERVER_URL + '/https',
-            self._test_force_https_callback,
-        )
-        while not self.reader.done: continue_runloop()
+            self._test_force_https_callback)
 
 
 if __name__ == '__main__':

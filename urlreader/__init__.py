@@ -11,6 +11,8 @@ from Foundation import NSURLResponse, NSCachedURLResponse
 
 from PyObjCTools.AppHelper import callAfter
 
+from urlreader.utils import continue_runloop
+
 
 USER_CACHE_PATH, _ = NSFileManager.defaultManager().\
     URLForDirectory_inDomain_appropriateForURL_create_error_(
@@ -42,7 +44,8 @@ class URLReader(object):
     def __init__(self, timeout=10,
                  quote_url_path=True, force_https=False,
                  use_cache=False,
-                 cache_location=CACHE_PATH):
+                 cache_location=CACHE_PATH,
+                 wait_until_done=False):
 
         self._reader = _URLReader.alloc().init()
         self._reader.setTimeout_(timeout)
@@ -50,6 +53,7 @@ class URLReader(object):
         self._force_https = force_https
         self._cache_location = cache_location
         self._use_cache = use_cache
+        self._wait_until_done = wait_until_done
 
         if self._use_cache:
             self._reader.setCacheAtPath_(cache_location)
@@ -98,6 +102,9 @@ class URLReader(object):
 
         self._reader.fetchURLOnBackgroundThread_withCallback_(url, callback)
 
+        if self._wait_until_done:
+            while not self.done: continue_runloop()
+
 
 class _URLReader(NSObject):
 
@@ -139,7 +146,7 @@ class _URLReader(NSObject):
         request = self.requestForURL_(url)
         response = NSURLResponse.alloc().\
             initWithURL_MIMEType_expectedContentLength_textEncodingName_(
-                url, 'text/plain', len(data), 'utf-8'
+                url, 'application/octet-stream', len(data), 'utf-8'
             )
         return NSCachedURLResponse.alloc().\
             initWithResponse_data_(response, data)
@@ -170,20 +177,22 @@ class _URLReader(NSObject):
         request = self.requestForURL_(url)
         task = self._session.dataTaskWithRequest_(request)
 
+        if self._cache:
+            cached_response = self._cache.cachedResponseForRequest_(request)
+            if cached_response:
+                self.completeWithCallback_URL_data_error_(
+                    callback, url, cached_response.data(), None
+                )
+                return
+
         self._running_tasks[task] = (
             NSMutableData.alloc().init(),
             callback
         )
         task.resume()
 
-    def URLSession_dataTask_willCacheResponse_completionHandler_(
-            self, session, task, response, handler):
-        # set the cached URL to the original one before all the redirects,
-        # so it works offline without hitting the server
-        pre_redirects_url = task.originalRequest().URL()
-        cached_response = self.makeCachedResponseWithData_forURL_(
-            response.data(), pre_redirects_url)
-        handler(cached_response)
+    def returnCachedResponse_(self, response):
+        pass
 
     def URLSession_dataTask_didReceiveData_(self, session, task, data):
         _data, _ = self._running_tasks[task]
@@ -195,12 +204,25 @@ class _URLReader(NSObject):
         pre_redirects_url = task.originalRequest().URL()
         post_redirects_url = task.currentRequest().URL()
 
+        if self._cache:
+            cached_response = self.makeCachedResponseWithData_forURL_(
+                _data, pre_redirects_url)
+            self._cache.storeCachedResponse_forRequest_(
+                cached_response,
+                task.originalRequest()
+            )
+
         if _callback is not None:
-            # callAfter gets executed on the main thread
-            # the argument types are: Python callable, NSURL, NSData, NSError
-            callAfter(_callback, post_redirects_url, _data, error)
+            self.completeWithCallback_URL_data_error_(
+                _callback, post_redirects_url, _data, error
+            )
 
         del self._running_tasks[task]
+
+    def completeWithCallback_URL_data_error_(self, callback, url, data, error):
+        # callAfter gets executed on the main thread
+        # the argument types are: Python callable, NSURL, NSData, NSError
+        callAfter(callback, url, data, error)
 
     def done(self):
         return len(self._running_tasks) == 0
