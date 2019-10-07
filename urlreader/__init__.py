@@ -191,9 +191,6 @@ class _URLReader(NSObject):
         )
         task.resume()
 
-    def returnCachedResponse_(self, response):
-        pass
-
     def URLSession_dataTask_didReceiveData_(self, session, task, data):
         _data, _ = self._running_tasks[task]
         _data.appendData_(data)
