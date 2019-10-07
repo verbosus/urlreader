@@ -144,7 +144,7 @@ class _URLReader(NSObject):
     def setCacheAtPath_(self, path):
         self._cache = NSURLCache.alloc().\
             initWithMemoryCapacity_diskCapacity_diskPath_(
-                0, 20 * 1024 * 1024, path
+                5 * 1024 * 1024, 20 * 1024 * 1024, path
             )
         self._requestCachePolicy = NSURLRequestReturnCacheDataElseLoad
         self.setupSession()
