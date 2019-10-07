@@ -3,6 +3,7 @@ import objc
 from urllib.parse import urlparse, urlunparse, quote
 
 from Foundation import NSObject, NSMutableData
+from Foundation import NSRunLoop, NSDate
 from Foundation import NSFileManager, NSCachesDirectory, NSUserDomainMask
 from Foundation import NSURL, NSURLSession, NSURLSessionConfiguration
 from Foundation import NSURLRequest, NSURLRequestUseProtocolCachePolicy
@@ -10,8 +11,6 @@ from Foundation import NSURLRequestReturnCacheDataElseLoad, NSURLCache
 from Foundation import NSURLResponse, NSCachedURLResponse
 
 from PyObjCTools.AppHelper import callAfter
-
-from urlreader.utils import continue_runloop
 
 
 USER_CACHE_PATH, _ = NSFileManager.defaultManager().\
@@ -94,6 +93,10 @@ class URLReader(object):
         if self._use_cache:
             self._reader.flushCache()
 
+    def continue_runloop(self):
+        NSRunLoop.mainRunLoop().runUntilDate_(
+            NSDate.dateWithTimeIntervalSinceNow_(0.01))
+
     def fetch(self, url, callback, invalidate_cache=False):
         url = self.process_url(url)
 
@@ -103,7 +106,7 @@ class URLReader(object):
         self._reader.fetchURLOnBackgroundThread_withCallback_(url, callback)
 
         if self._wait_until_done:
-            while not self.done: continue_runloop()
+            while not self.done: self.continue_runloop()
 
 
 class _URLReader(NSObject):

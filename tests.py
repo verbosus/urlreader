@@ -6,7 +6,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from Foundation import NSThread, NSMutableData
 
 from urlreader import URLReader
-from urlreader.utils import callback, decode_data, continue_runloop
+from urlreader.utils import callback, decode_data
 
 
 MOCK_SERVER_ADDRESS = '127.0.0.1'
@@ -188,7 +188,7 @@ class URLReaderTest(MockServerTest):
         reader = URLReader()
         for url in urls:
             reader.fetch(url, self._test_multiple_urls_callback)
-        while not reader.done: continue_runloop()
+        while not reader.done: reader.continue_runloop()
 
     def test_redirect(self):
         # yes, of course you can also use a lambda as the callback
@@ -314,12 +314,6 @@ class OfflineURLReaderTest(unittest.TestCase):
         # this is an http URL, right?
         self.reader.fetch(MOCK_SERVER_URL + '/https',
             self._test_force_https_callback)
-
-    def test_cache_invalidate(self):
-        self.cache.set('foo', b'some data')
-        self.assertEqual(self.cache.get('foo'), b'some data')
-        self.cache.delete('foo')
-        self.assertEqual(self.cache.get('foo', None), None)
 
 
 if __name__ == '__main__':
