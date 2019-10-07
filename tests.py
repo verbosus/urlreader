@@ -273,29 +273,48 @@ class OfflineURLReaderTest(unittest.TestCase):
     because the responses are coming from the cache.
     """
 
+    NON_EXISTENT_URL = f'{MOCK_SERVER_URL}/non-existent'
+    NON_EXISTENT_CONTENTS = b'This URL does not exist'
+
+    HTTPS_URL = f'https://{MOCK_SERVER_ADDRESS}:{MOCK_SERVER_PORT}/https'
+    HTTPS_CONTENTS = b'Hello, https'
+
     def setUp(self):
         self.reader = URLReader(
+            timeout=2,
             use_cache=True,
             cache_location=TEMP_URLREADER_CACHE,
             wait_until_done=True,
         )
         self.reader.flush_cache()
 
+        # set the cache to respond to an arbitrary, non-existent URL
+        self.reader.set_cache(
+            OfflineURLReaderTest.NON_EXISTENT_URL,
+            OfflineURLReaderTest.NON_EXISTENT_CONTENTS)
+        # verify the cache is actually set
+        self.assertEqual(
+            self.reader.get_cache(OfflineURLReaderTest.NON_EXISTENT_URL),
+            OfflineURLReaderTest.NON_EXISTENT_CONTENTS)
+
+        # set the cache to respond to an https URL
+        self.reader.set_cache(
+            OfflineURLReaderTest.HTTPS_URL,
+            OfflineURLReaderTest.HTTPS_CONTENTS)
+        # verify the cache is actually set
+        self.assertEqual(
+            self.reader.get_cache(OfflineURLReaderTest.HTTPS_URL),
+            OfflineURLReaderTest.HTTPS_CONTENTS)
+
     def tearDown(self):
         self.reader.flush_cache()
 
-    def _test_offline_cache_callback(self, url, data, error):
-        self.assertEqual('hello', decode_data(data))
-
     def test_offline_cache(self):
-        # set the cache to respond to an arbitrary, non-existent URL
-        self.reader.set_cache(MOCK_SERVER_URL + '/non-existent', b'hello')
-        self.reader.fetch(MOCK_SERVER_URL + '/non-existent',
-            self._test_offline_cache_callback)
-
-    def _test_force_https_callback(self, url, data, error):
-        self.assertEqual('Hello, https', decode_data(data))
-        self.assertTrue(error == None)
+        # this shouldn’t hit even the server
+        self.reader.fetch(
+            OfflineURLReaderTest.NON_EXISTENT_URL,
+            lambda url, data, error: self.assertEqual(
+                OfflineURLReaderTest.NON_EXISTENT_CONTENTS, data))
 
     def test_force_https(self):
         # Okay, so here’s a roundabout way of testing that our force_https
@@ -306,14 +325,11 @@ class OfflineURLReaderTest(unittest.TestCase):
         # which will promote http to https, which will make it hit the cache!
         # I know... right?!
         self.reader._force_https = True
-        self.reader.set_cache(
-            f'https://{MOCK_SERVER_ADDRESS}:{MOCK_SERVER_PORT}/https',
-            b'Hello, https',
-        )
 
         # this is an http URL, right?
-        self.reader.fetch(MOCK_SERVER_URL + '/https',
-            self._test_force_https_callback)
+        self.reader.fetch(f'{MOCK_SERVER_URL}/https',
+            lambda url, data, error: self.assertEqual(
+                OfflineURLReaderTest.HTTPS_CONTENTS, data))
 
 
 if __name__ == '__main__':

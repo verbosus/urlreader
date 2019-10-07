@@ -82,7 +82,11 @@ class URLReader(object):
 
     def set_cache(self, url, data):
         url = self.process_url(url)
-        self._reader.setCachedData_forURL_(data, url)
+        return self._reader.setCachedData_forURL_(data, url)
+
+    def get_cache(self, url):
+        url = self.process_url(url)
+        return self._reader.getCachedDataForURL_(url)
 
     def invalidate_cache_for_url(self, url):
         url = self.process_url(url)
@@ -154,6 +158,12 @@ class _URLReader(NSObject):
         return NSCachedURLResponse.alloc().\
             initWithResponse_data_(response, data)
 
+    def getCachedDataForURL_(self, url):
+        request = self.requestForURL_(url)
+        cached_response = self._cache.cachedResponseForRequest_(request)
+        if cached_response:
+            return cached_response.data()
+
     def setCachedData_forURL_(self, data, url):
         if self._cache:
             response = self.makeCachedResponseWithData_forURL_(data, url)
@@ -181,10 +191,10 @@ class _URLReader(NSObject):
         task = self._session.dataTaskWithRequest_(request)
 
         if self._cache:
-            cached_response = self._cache.cachedResponseForRequest_(request)
-            if cached_response:
+            cached_data = self.getCachedDataForURL_(url)
+            if cached_data:
                 self.completeWithCallback_URL_data_error_(
-                    callback, url, cached_response.data(), None
+                    callback, url, cached_data, None
                 )
                 return
 
