@@ -3,8 +3,7 @@ import logging
 
 from urllib.parse import urlparse, urlunparse, quote
 
-from Foundation import NSObject
-from Foundation import NSRunLoop, NSDate
+from Foundation import NSObject, NSRunLoop, NSDate
 from Foundation import NSFileManager, NSCachesDirectory, NSUserDomainMask
 from Foundation import NSURL, NSURLSession, NSURLSessionConfiguration
 from Foundation import NSURLRequest, NSURLRequestUseProtocolCachePolicy
