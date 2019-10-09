@@ -1,4 +1,5 @@
-import unittest, time
+import time
+import unittest
 
 from multiprocessing import Process
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -6,13 +7,14 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from Foundation import NSThread, NSMutableData
 
 from urlreader import URLReader
-from urlreader.utils import callback, decode_data
+from urlreader.utils import decode_data
 
 
 MOCK_SERVER_ADDRESS = '127.0.0.1'
 MOCK_SERVER_PORT = 9791
 MOCK_SERVER_SCHEME = 'http'
-MOCK_SERVER_URL = f'{MOCK_SERVER_SCHEME}://{MOCK_SERVER_ADDRESS}:{MOCK_SERVER_PORT}'
+MOCK_SERVER_URL = \
+    f'{MOCK_SERVER_SCHEME}://{MOCK_SERVER_ADDRESS}:{MOCK_SERVER_PORT}'
 
 TEMP_URLREADER_CACHE = '/tmp/URLReaderCache'
 
@@ -32,7 +34,8 @@ class MockServer(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-type", "text/html")
-        self.send_header("Cache-Control", "max-age=3600") # cache for one hour
+        # cache for one hour
+        self.send_header("Cache-Control", "max-age=3600")
         self.end_headers()
 
         if self.path == '/':
@@ -108,7 +111,7 @@ class URLReaderTest(MockServerTest):
     def test_simple_url_fetch(self):
         reader = URLReader(wait_until_done=True)
         reader.fetch(
-            MOCK_SERVER_URL, 
+            MOCK_SERVER_URL,
             self._test_simple_url_fetch_callback,
         )
 
@@ -117,24 +120,24 @@ class URLReaderTest(MockServerTest):
 
     def test_simple_url_with_path_fetch(self):
         reader = URLReader(wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Ada', 
-            self._test_simple_url_with_path_callback)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Ada',
+                     self._test_simple_url_with_path_callback)
 
     def _test_quoted_path_callback(self, url, data, error):
         self.assertEqual(decode_data(data), 'Hello, Mickey%20Mouse!')
 
     def test_quoted_path(self):
         reader = URLReader(wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse', 
-            self._test_quoted_path_callback)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse',
+                     self._test_quoted_path_callback)
 
     def _test_unquoted_path_callback(self, url, data, error):
         self.assertEqual(error.localizedDescription(), 'unsupported URL')
 
     def test_unquoted_path(self):
         reader = URLReader(quote_url_path=False, wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse', 
-            self._test_unquoted_path_callback)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse',
+                     self._test_unquoted_path_callback)
 
     def _test_bogus_url_callback(self, url, data, error):
         # the call timed out and we have an error
@@ -143,32 +146,33 @@ class URLReaderTest(MockServerTest):
     def test_bogus_url(self):
         reader = URLReader(timeout=0.1, wait_until_done=True)
         reader.fetch("https://www.doesnot-exist.forsure-xxx/",
-            self._test_bogus_url_callback)
+                     self._test_bogus_url_callback)
 
     def _test_timeout_request_callback(self, url, data, error):
         # the call timed out and we have an error...
         self.assertTrue(error is not None)
         # ...and no data
-        self.assertEqual(len(data), 0)
+        self.assertEqual(data, None)
 
     def test_timeout_request(self):
         # set the timeout to some tiny amount
         reader = URLReader(timeout=0.2, wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/slow', 
-            self._test_timeout_request_callback)
+        reader.fetch(MOCK_SERVER_URL + '/slow',
+                     self._test_timeout_request_callback)
 
     def _test_multiple_urls_callback(self, url, data, error):
         self._multiple_urls_data.appendData_(data)
         self._multiple_urls_requested_loaded += 1
-        if self._multiple_urls_requested_loaded == self._multiple_urls_requested_count:
+        if self._multiple_urls_requested_loaded == \
+                self._multiple_urls_requested_count:
             data = decode_data(self._multiple_urls_data)
             self.assertTrue(
-                'A' in data and \
-                'B' in data and \
-                'C' in data and \
-                'D' in data and \
-                'E' in data and \
-                'F' in data
+                'A' in data
+                and 'B' in data
+                and 'C' in data
+                and 'D' in data
+                and 'E' in data
+                and 'F' in data
             )
 
     def test_multiple_urls(self):
@@ -188,12 +192,13 @@ class URLReaderTest(MockServerTest):
         reader = URLReader()
         for url in urls:
             reader.fetch(url, self._test_multiple_urls_callback)
-        while not reader.done: reader.continue_runloop()
+        while not reader.done:
+            reader.continue_runloop()
 
     def test_redirect(self):
         # yes, of course you can also use a lambda as the callback
-        reader = URLReader(wait_until_done=True).fetch(
-            MOCK_SERVER_URL + '/redirect', 
+        URLReader(wait_until_done=True).fetch(
+            MOCK_SERVER_URL + '/redirect',
             lambda url, data, error: self.assertEqual(
                 str(url), MOCK_SERVER_URL + '/after-redirect'))
 
@@ -213,24 +218,24 @@ class CachingURLReaderTest(MockServerTest):
         # reset the test server count
         reader = URLReader(wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/count/reset',
-            self._test_cache_assert_0_callback)
+                     self._test_cache_assert_0_callback)
 
     def test_transient_cache(self):
         reader = URLReader(wait_until_done=True)
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback)
+                     self._test_cache_assert_1_callback)
 
         # This second call won’t actually hit the server
         # because it’s respecting the HTTP caching headers.
         # Thanks, NSURLRequestUseProtocolCachePolicy!
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback)
+                     self._test_cache_assert_1_callback)
 
         # bust the cache again...
         reader._reader.flushCache()
         # ...so the third request will hit the server
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_2_callback)
+                     self._test_cache_assert_2_callback)
 
         # reset the count at the end of the test
         self._test_server_reset_count()
@@ -244,22 +249,22 @@ class CachingURLReaderTest(MockServerTest):
 
         # hit the server, first
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback)
+                     self._test_cache_assert_1_callback)
 
         # this second call won’t actually hit the server
         # because it’s coming from the persistent cache
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_1_callback)
+                     self._test_cache_assert_1_callback)
 
         # this will hit the server and should return 1
         # because the previous increment call didn’t actually execute
         reader.fetch(MOCK_SERVER_URL + '/count/current',
-            self._test_cache_assert_1_callback)
+                     self._test_cache_assert_1_callback)
 
-        # this invalidates the cache, and thus hits the server 
+        # this invalidates the cache, and thus hits the server
         reader.fetch(MOCK_SERVER_URL + '/count/increment',
-            self._test_cache_assert_2_callback,
-            invalidate_cache=True)
+                     self._test_cache_assert_2_callback,
+                     invalidate_cache=True)
 
         self._test_server_reset_count()
         reader.flush_cache()
@@ -327,11 +332,12 @@ class OfflineURLReaderTest(unittest.TestCase):
         self.reader._force_https = True
 
         # this is an http URL, right?
-        self.reader.fetch(f'{MOCK_SERVER_URL}/https',
+        self.reader.fetch(
+            f'{MOCK_SERVER_URL}/https',
             lambda url, data, error: self.assertEqual(
-                OfflineURLReaderTest.HTTPS_CONTENTS, data))
+                OfflineURLReaderTest.HTTPS_CONTENTS, data)
+        )
 
 
 if __name__ == '__main__':
     unittest.main()
-

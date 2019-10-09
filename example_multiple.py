@@ -1,5 +1,5 @@
 from urlreader import URLReader
-from urlreader.utils import callback, continue_runloop
+from urlreader.utils import callback
 
 
 urls = [
@@ -16,5 +16,5 @@ reader = URLReader()
 for url in urls:
     reader.fetch(url, callback)
 
-while not reader.done: continue_runloop()
-
+while not reader.done:
+    reader.continue_runloop()

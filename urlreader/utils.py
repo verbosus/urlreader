@@ -12,4 +12,3 @@ def callback(url, data, error):
 
 def decode_data(data):
     return NSString.alloc().initWithData_encoding_(data, NSUTF8StringEncoding)
-

@@ -1,9 +1,9 @@
 from urlreader import URLReader
-from urlreader.utils import callback, continue_runloop
+from urlreader.utils import callback
 
 
 reader = URLReader()
 reader.fetch("https://www.apple.com/", callback)
 
-while not reader.done: continue_runloop()
-
+while not reader.done:
+    reader.continue_runloop()

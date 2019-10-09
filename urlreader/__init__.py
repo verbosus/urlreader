@@ -1,8 +1,9 @@
 import objc
+import logging
 
 from urllib.parse import urlparse, urlunparse, quote
 
-from Foundation import NSObject, NSMutableData
+from Foundation import NSObject
 from Foundation import NSRunLoop, NSDate
 from Foundation import NSFileManager, NSCachesDirectory, NSUserDomainMask
 from Foundation import NSURL, NSURLSession, NSURLSessionConfiguration
@@ -11,6 +12,9 @@ from Foundation import NSURLRequestReturnCacheDataElseLoad, NSURLCache
 from Foundation import NSURLResponse, NSCachedURLResponse
 
 from PyObjCTools.AppHelper import callAfter
+
+
+logger = logging.getLogger('URLReader')
 
 
 USER_CACHE_PATH, _ = NSFileManager.defaultManager().\
@@ -24,10 +28,10 @@ CACHE_PATH = USER_CACHE_PATH.\
 def callback(url, data, error):
     """URLReader prototype callback
 
-    By providing a function with the same signature as this to URLReader.fetch(),
-    code can be notified when the background URL fetching operation has been
-    completed and manipulate the resulting data. The callback will be called
-    on the main thread.
+    By providing a function with the same signature as this to
+    URLReader.fetch(), code can be notified when the background URL
+    fetching operation has been completed and manipulate the resulting
+    data. The callback will be called on the main thread.
     """
     raise NotImplementedError
 
@@ -36,7 +40,7 @@ class URLReader(object):
     """A wrapper around macOS’s NSURLSession, etc.
 
     All URL reading operations execute in the background and return the
-    URL contents to an asynchronous callback on the main thread. Optionally, 
+    URL contents to an asynchronous callback on the main thread. Optionally,
     URLReader can be configured to use a persistent on-disk cache.
     """
 
@@ -107,10 +111,11 @@ class URLReader(object):
         if invalidate_cache:
             self.invalidate_cache_for_url(url)
 
-        self._reader.fetchURLOnBackgroundThread_withCallback_(url, callback)
+        self._reader.fetchURL_withCallback_(url, callback)
 
         if self._wait_until_done:
-            while not self.done: self.continue_runloop()
+            while not self.done:
+                self.continue_runloop()
 
 
 class _URLReader(NSObject):
@@ -121,7 +126,7 @@ class _URLReader(NSObject):
         self = objc.super(_URLReader, self).init()
         self._session = None
         self._timeout = None
-        self._running_tasks = {}
+        self._callbacks = {}
         self._config = NSURLSessionConfiguration.defaultSessionConfiguration()
         self._config.setWaitsForConnectivity_(True)
         self._cache = None
@@ -134,8 +139,7 @@ class _URLReader(NSObject):
         if self._cache is not None:
             self._config.setURLCache_(self._cache)
             self._config.setRequestCachePolicy_(self._requestCachePolicy)
-        self._session = NSURLSession.sessionWithConfiguration_delegate_delegateQueue_(
-            self._config, self, None)
+        self._session = NSURLSession.sessionWithConfiguration_(self._config)
 
     def setTimeout_(self, timeout):
         self._timeout = timeout
@@ -150,7 +154,6 @@ class _URLReader(NSObject):
         self.setupSession()
 
     def makeCachedResponseWithData_forURL_(self, data, url):
-        request = self.requestForURL_(url)
         response = NSURLResponse.alloc().\
             initWithURL_MIMEType_expectedContentLength_textEncodingName_(
                 url, 'application/octet-stream', len(data), 'utf-8'
@@ -186,54 +189,24 @@ class _URLReader(NSObject):
             url, self._requestCachePolicy, self._timeout
         )
 
-    def fetchURLOnBackgroundThread_withCallback_(self, url, callback):
+    def makeHandlerWithURL_(self, url):
+        def handler(data, response, error):
+            callback = self._callbacks[url]
+            response_url = response.URL() if response else url
+            callAfter(callback, response_url, data, error)
+            del self._callbacks[url]
+        return handler
+
+    def fetchURL_withCallback_(self, url, callback):
         request = self.requestForURL_(url)
-        task = self._session.dataTaskWithRequest_(request)
-
-        if self._cache:
-            cached_data = self.getCachedDataForURL_(url)
-            if cached_data:
-                self.completeWithCallback_URL_data_error_(
-                    callback, url, cached_data, None
-                )
-                return
-
-        self._running_tasks[task] = (
-            NSMutableData.alloc().init(),
-            callback
-        )
-        task.resume()
-
-    def URLSession_dataTask_didReceiveData_(self, session, task, data):
-        _data, _ = self._running_tasks[task]
-        _data.appendData_(data)
-
-    def URLSession_task_didCompleteWithError_(self, session, task, error):
-        _data, _callback = self._running_tasks[task]
-
-        pre_redirects_url = task.originalRequest().URL()
-        post_redirects_url = task.currentRequest().URL()
-
-        if self._cache:
-            cached_response = self.makeCachedResponseWithData_forURL_(
-                _data, pre_redirects_url)
-            self._cache.storeCachedResponse_forRequest_(
-                cached_response,
-                task.originalRequest()
-            )
-
-        if _callback is not None:
-            self.completeWithCallback_URL_data_error_(
-                _callback, post_redirects_url, _data, error
-            )
-
-        del self._running_tasks[task]
-
-    def completeWithCallback_URL_data_error_(self, callback, url, data, error):
-        # callAfter gets executed on the main thread
-        # the argument types are: Python callable, NSURL, NSData, NSError
-        callAfter(callback, url, data, error)
+        handler = self.makeHandlerWithURL_(url)
+        if url not in self._callbacks:
+            self._callbacks[url] = callback
+            task = self._session.\
+                dataTaskWithRequest_completionHandler_(request, handler)
+            task.resume()
+        else:
+            logger.error(f'{url} already being fetched')
 
     def done(self):
-        return len(self._running_tasks) == 0
-
+        return len(self._callbacks) == 0
