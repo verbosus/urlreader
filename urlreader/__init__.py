@@ -161,10 +161,11 @@ class _URLReader(NSObject):
             initWithResponse_data_(response, data)
 
     def getCachedDataForURL_(self, url):
-        request = self.requestForURL_(url)
-        cached_response = self._cache.cachedResponseForRequest_(request)
-        if cached_response:
-            return cached_response.data()
+        if self._cache:
+            request = self.requestForURL_(url)
+            cached_response = self._cache.cachedResponseForRequest_(request)
+            if cached_response:
+                return cached_response.data()
 
     def setCachedData_forURL_(self, data, url):
         if self._cache:
@@ -191,12 +192,30 @@ class _URLReader(NSObject):
     def makeHandlerWithURL_(self, url):
         def handler(data, response, error):
             callback = self._callbacks[url]
-            response_url = response.URL() if response else url
+
+            # if there is no data we return the original URL
+            response_url = url
+
+            if data and response:
+                # always cache with the original request URL so even
+                # if the response requires a redirect, like for raw
+                # files on Github, we can still fulfill it offline
+                self.setCachedData_forURL_(data, url)
+
+                # if we have a response we pass the final URL after
+                # the redirects, so a consumer can see it changed
+                response_url = response.URL()
+
             callAfter(callback, response_url, data, error)
             del self._callbacks[url]
         return handler
 
     def fetchURL_withCallback_(self, url, callback):
+        cachedData = self.getCachedDataForURL_(url)
+        if cachedData:
+            callAfter(callback, url, cachedData, None)
+            return
+
         request = self.requestForURL_(url)
         handler = self.makeHandlerWithURL_(url)
         if url not in self._callbacks:
