@@ -21,7 +21,7 @@ USER_CACHE_PATH, _ = NSFileManager.defaultManager().\
         NSCachesDirectory, NSUserDomainMask, None, True, None
     )
 CACHE_PATH = USER_CACHE_PATH.\
-    URLByAppendingPathComponent_isDirectory_('URLReader', True).relativePath()
+    URLByAppendingPathComponent_isDirectory_('URLReader', True)
 
 
 def callback(url, data, error):
@@ -59,7 +59,7 @@ class URLReader(object):
 
         if self._use_cache:
             self._reader.setCacheAtPath_(
-                NSURL.URLWithString_(cache_location))
+                NSURL.URLWithString_(self._cache_location))
 
     @property
     def done(self):
