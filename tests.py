@@ -269,6 +269,48 @@ class CachingURLReaderTest(MockServerTest):
         self._test_server_reset_count()
         reader.flush_cache()
 
+    def test_cache_invalidate_existing_url(self):
+        TEST_URL = f"{MOCK_SERVER_URL}/hello/A"
+
+        reader = URLReader(
+            use_cache=True,
+            cache_location=TEMP_URLREADER_CACHE,
+            wait_until_done=True,
+        )
+
+        # it’s not cached yet
+        self.assertEqual(reader.get_cache(TEST_URL), None)
+
+        # fetch and cache it
+        reader.fetch(
+            TEST_URL, 
+            lambda url, data, error: \
+                self.assertEqual('Hello, A!', decode_data(data)))
+
+        # it’s in the cache
+        self.assertEqual('Hello, A!', decode_data(reader.get_cache(TEST_URL)))
+
+        # invalidate the cache
+        reader.invalidate_cache_for_url(TEST_URL)
+
+        # it’s no longer in the cache
+        self.assertEqual(reader.get_cache(TEST_URL), None)
+
+        reader.flush_cache()
+
+    def test_cache_invalidate_non_existing_url(self):
+        NON_EXISTING_URL = 'http://non-existing.example.org/'
+        reader = URLReader(
+            use_cache=True,
+            cache_location=TEMP_URLREADER_CACHE,
+            wait_until_done=True,
+        )
+        self.assertEqual(reader.get_cache(NON_EXISTING_URL), None)
+
+        # Invalidating a non-existing URL shouldn’t raise any exceptions
+        reader.invalidate_cache_for_url(NON_EXISTING_URL)
+        reader.flush_cache()
+
 
 class OfflineURLReaderTest(unittest.TestCase):
 
