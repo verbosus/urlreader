@@ -127,7 +127,9 @@ class _URLReader(NSObject):
         self._timeout = None
         self._callbacks = {}
         self._config = NSURLSessionConfiguration.defaultSessionConfiguration()
-        self._config.setWaitsForConnectivity_(True)
+        # this is only available in macOS 10.13+
+        if 'waitsForConnectivity' in dir(self._config):
+            self._config.setWaitsForConnectivity_(True)
         self._cache = None
         self._requestCachePolicy = NSURLRequestUseProtocolCachePolicy
         return self
