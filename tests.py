@@ -6,7 +6,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from Foundation import NSThread, NSMutableData
 
-from urlreader import URLReader
+from urlreader import URLReader, URLReaderError
 from urlreader.utils import decode_data
 
 
@@ -309,6 +309,18 @@ class CachingURLReaderTest(MockServerTest):
 
         # Invalidating a non-existing URL shouldn’t raise any exceptions
         reader.invalidate_cache_for_url(NON_EXISTING_URL)
+        reader.flush_cache()
+
+    def test_cache_invalidate_on_none(self):
+        reader = URLReader(
+            use_cache=True,
+            cache_location=TEMP_URLREADER_CACHE,
+            wait_until_done=True,
+        )
+
+        # this should raise
+        with self.assertRaises(URLReaderError):
+            reader.invalidate_cache_for_url(None)
         reader.flush_cache()
 
 

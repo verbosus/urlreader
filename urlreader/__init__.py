@@ -35,6 +35,10 @@ def callback(url, data, error):
     raise NotImplementedError
 
 
+class URLReaderError(Exception):
+    pass
+
+
 class URLReader(object):
     """A wrapper around macOS’s NSURLSession, etc.
 
@@ -88,14 +92,20 @@ class URLReader(object):
         return NSURL.URLWithString_(url)
 
     def set_cache(self, url, data):
+        if url is None:
+            raise URLReaderError('URL must not be None')
         url = self.process_url(url)
         return self._reader.setCachedData_forURL_(data, url)
 
     def get_cache(self, url):
+        if url is None:
+            raise URLReaderError('URL must not be None')
         url = self.process_url(url)
         return self._reader.getCachedDataForURL_(url)
 
     def invalidate_cache_for_url(self, url):
+        if url is None:
+            raise URLReaderError('URL must not be None')
         url = self.process_url(url)
         if self._use_cache:
             self._reader.invalidateCacheForURL_(url)
@@ -109,6 +119,11 @@ class URLReader(object):
             NSDate.dateWithTimeIntervalSinceNow_(0.01))
 
     def fetch(self, url, callback, invalidate_cache=False):
+        if url is None:
+            raise URLReaderError('URL must not be None')
+        if callback is None:
+            raise URLReaderError('Callback must not be None')
+
         url = self.process_url(url)
 
         if invalidate_cache:
