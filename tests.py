@@ -315,7 +315,7 @@ class OfflineURLReaderTest(unittest.TestCase):
         self.reader.flush_cache()
 
     def test_offline_cache(self):
-        # this shouldn’t hit even the server
+        # this shouldn’t even hit the server
         self.reader.fetch(
             OfflineURLReaderTest.NON_EXISTENT_URL,
             lambda url, data, error: self.assertEqual(

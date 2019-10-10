@@ -155,7 +155,8 @@ class _URLReader(NSObject):
         memoryCapacity = 5 * 1024 * 1024
         diskCapacity = 20 * 1024 * 1024
 
-        if 'initWithMemoryCapacity_diskCapacity_directoryURL_' in dir(self._cache):
+        if 'initWithMemoryCapacity_diskCapacity_directoryURL_' in \
+                dir(self._cache):
             self._cache.initWithMemoryCapacity_diskCapacity_directoryURL_(
                 memoryCapacity, diskCapacity, url)
         else:
@@ -221,6 +222,7 @@ class _URLReader(NSObject):
                 # the redirects, so a consumer can see it changed
                 response_url = response.URL()
 
+            # callAfter executes on the main thread
             callAfter(callback, response_url, data, error)
             del self._callbacks[url]
         return handler
@@ -228,6 +230,7 @@ class _URLReader(NSObject):
     def fetchURL_withCallback_(self, url, callback):
         cachedData = self.getCachedDataForURL_(url)
         if cachedData:
+            # callAfter executes on the main thread
             callAfter(callback, url, cachedData, None)
             return
 
