@@ -58,7 +58,8 @@ class URLReader(object):
         self._wait_until_done = wait_until_done
 
         if self._use_cache:
-            self._reader.setCacheAtPath_(cache_location)
+            self._reader.setCacheAtPath_(
+                NSURL.URLWithString_(cache_location))
 
     @property
     def done(self):
@@ -147,10 +148,19 @@ class _URLReader(NSObject):
         self.setupSession()
 
     def setCacheAtPath_(self, path):
-        self._cache = NSURLCache.alloc().\
-            initWithMemoryCapacity_diskCapacity_diskPath_(
-                5 * 1024 * 1024, 20 * 1024 * 1024, path
-            )
+        self._cache = NSURLCache.alloc()
+        memoryCapacity = 5 * 1024 * 1024
+        diskCapacity = 20 * 1024 * 1024
+
+        if 'initWithMemoryCapacity_diskCapacity_directoryURL_' in dir(self._cache):
+            self._cache.initWithMemoryCapacity_diskCapacity_directoryURL_(
+                memoryCapacity, diskCapacity, path)
+        else:
+            # this API will be deprecated in macOS 10.15 and
+            # replaced by the one above
+            self._cache.initWithMemoryCapacity_diskCapacity_diskPath_(
+                memoryCapacity, diskCapacity, path.relativePath())
+
         self._requestCachePolicy = NSURLRequestReturnCacheDataElseLoad
         self.setupSession()
 
