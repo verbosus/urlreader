@@ -92,6 +92,24 @@ Flushing the cache, removing all the cached entries, is also possible:
 reader.flush_cache()
 ```
 
+## Callback
+
+Sometimes you just need to fetch some values, quick. You could use a lambda:
+
+```python
+URLReader().fetch('http://example.org',
+    lambda url, data, error: print(f'Received {len(data)} bytes'))
+```
+
+Just remember the lambda would be called asynchronously and the call would return right away. So it’d be no good in a script without an NSRunLoop. In that case, this would work:
+
+```python
+URLReader(wait_until_done=True).fetch('http://example.org',
+    lambda url, data, error: print(f'Received {len(data)} bytes'))
+```
+
+This would make the call block until the data is received and the lambda has exited. But then again, if you just want to fetch a URL in a blocking fashion with no caches or other accoutrements, either `requests.get(url)` or `urllib.request.urlopen(url)` are probably a better fit.
+
 ## Tests
 
 URLReader has a small test suite which spins a simple HTTP server in a separate process and runs against it. You can run it with the `tests.py` script in the main directory.
