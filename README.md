@@ -1,3 +1,5 @@
+<img src="https://github.com/verbosus/urlreader/workflows/Tests/badge.svg">
+
 # URLReader
 
 URLReader is a wrapper around macOS’s NSURLSession, etc. 
