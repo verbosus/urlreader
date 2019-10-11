@@ -30,6 +30,22 @@ URLReader(timeout=2) # in seconds
 
 Notice that this is the total response time, not how long it takes for the initial request to make it to the server. 
 
+## Quote URL path and force HTTPS
+
+Sometimes people have spaces in their URL paths, like, say, `/Foo Bar`, but forget to quote them. The `NSURLSession` reading machinery really doesn’t like that. By default URLReader quotes the path component of a URL. This behavior can be turned off, if needed:
+
+```python
+URLReader(quote_url_path=False)
+```
+
+Also, sometimes people try to open `http` URLs, but their apps’ App Security Policy won’t allow that. If the remote server also supports `https`, then you can tell URLReader to promote the URLs from `http` to `https` by calling:
+
+```python
+URLReader(force_https=True)
+```
+
+This setting won’t affect non-HTTP requests. Technically there is nothing in URL-reader that is HTTP-only, and `NSURLSession` does support other protocols. I haven’t tested it with these, but I’m not aware of anything special that would need to change. 
+
 ## Usage from scripts
 
 You can use URLReader in synchronous mode for one-off scripts if you need to. It will block until the response is fully returned to your callback instead of calling it asynchronously like it normally would:
