@@ -228,14 +228,24 @@ class _URLReader(NSObject):
             response_url = url
 
             if data and response:
-                # always cache with the original request URL so even
-                # if the response requires a redirect, like for raw
-                # files on Github, we can still fulfill it offline
-                self.setCachedData_forURL_(data, url)
+
+                # save the URL returned after all the possible redirects
+                post_redirect_url = response.URL()
+
+                if self._cache:
+                    # always cache with the original request URL so even
+                    # if the response requires a redirect, like for raw
+                    # files on Github, we can still fulfill it offline
+                    self.setCachedData_forURL_(data, url)
+
+                    # but in that case, remove the cached data for the
+                    # final URL so we don’t store two copies
+                    if url != post_redirect_url:
+                        self.invalidateCacheForURL_(post_redirect_url)
 
                 # if we have a response we pass the final URL after
                 # the redirects, so a consumer can see it changed
-                response_url = response.URL()
+                response_url = post_redirect_url
 
             # callAfter executes on the main thread
             callAfter(callback, response_url, data, error)
