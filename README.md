@@ -86,4 +86,4 @@ Thanks for reading, hope this code is useful somehow.
 
 ---
 
-URLReader was written by [Antonio Cavedoni](antonio@cavedoni.org) and is licensed under the terms of the [MIT License](https://github.com/verbosus/urlreader/blob/master/LICENSE).
+URLReader was written by [Antonio Cavedoni](mailto:antonio@cavedoni.org) and is licensed under the terms of the [MIT License](https://github.com/verbosus/urlreader/blob/master/LICENSE).
