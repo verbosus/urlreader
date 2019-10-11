@@ -1,4 +1,4 @@
-![](https://github.com/verbosus/urlreader/workflows/Tests/badge.svg)
+[<img src="https://github.com/verbosus/urlreader/workflows/Tests/badge.svg" alt="Tests">](https://github.com/verbosus/urlreader/actions)
 
 # URLReader
 
