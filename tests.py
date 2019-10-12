@@ -283,9 +283,9 @@ class CachingURLReaderTest(MockServerTest):
 
         # fetch and cache it
         reader.fetch(
-            TEST_URL, 
-            lambda url, data, error: \
-                self.assertEqual('Hello, A!', decode_data(data)))
+            TEST_URL,
+            lambda url, data, error:
+            self.assertEqual('Hello, A!', decode_data(data)))
 
         # it’s in the cache
         self.assertEqual('Hello, A!', decode_data(reader.get_cache(TEST_URL)))
