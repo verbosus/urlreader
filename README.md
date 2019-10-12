@@ -6,15 +6,15 @@ URLReader is a wrapper around macOS’s NSURLSession, etc.
 
 ## Scope & Limitations
 
-URLReader originated from [an effort](https://github.com/robofont-mechanic/mechanic-2/pull/18) to improve the UI responsiveness of [Mechanic](https://robofontmechanic.com/), a package manager for the [RoboFont](https://www.robofont.com/) editor. Because of this original use-case, URLReader is meant to be used in PyObjC apps or scripts that need to download and possibly cache relatively small bits of additional data. 
+URLReader originated from [an effort](https://github.com/robofont-mechanic/mechanic-2/pull/18) to improve the UI responsiveness of [Mechanic](https://robofontmechanic.com/), a package manager for [RoboFont](https://www.robofont.com/). Because of this original use-case, URLReader is meant to be used in PyObjC apps or scripts that need to download and possibly cache relatively small bits of additional data. Technically there is nothing preventing you from using URLReader for other use-cases, larger downloads, etc. but depending what these might be you might be better served by using `NSURLSession` directly.
+
+Being powered by the system `NSURLSession`, URLReader only works on macOS 10.9+.
 
 ## Basic usage
 
 In its most basic form, URLReader takes a URL, fetches its contents in the background (so it won’t block your UI) and sends them back on the main thread to a callback you provide. The callback is a regular Python function with three arguments: `url` , `data` and `error` (of types `NSURL`, `NSData` and `NSError`). Like this:
 
 ```python
-from urlreader import URLReader
-
 def callback(url, data, error):
     if url and data and not error:
         print(f"Received {url} contents, {len(data)} bytes")
@@ -114,7 +114,7 @@ This would make the call block until the data is received and the lambda has exi
 
 ## Tests
 
-URLReader has a small test suite which spins a simple HTTP server in a separate process and runs against it. You can run it with the `tests.py` script in the main directory.
+URLReader has a small test suite which spins a simple HTTP server in a separate process and runs against it. You can run it with the `tests.py` script in the main directory. The test suite is also [hooked up to Github’s actions](https://github.com/verbosus/urlreader/actions), so it runs whenever there’s a push on the repo.
 
 ## And that’s it
 
