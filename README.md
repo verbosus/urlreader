@@ -10,6 +10,24 @@ URLReader originated from [an effort](https://github.com/robofont-mechanic/mecha
 
 Being powered by the system `NSURLSession`, URLReader only works on macOS 10.9+.
 
+## Install
+
+URLReader is [available](https://pypi.org/project/urlreader/) through the Python Packaging Index, so you can ```pip install urlreader```. We recommend using virtual environments, in which case you can add `urlreader` in your `requirements.txt` or `Pipfile` etc.
+
+You can also install directly from source, in which case you can run:
+
+```shell
+$ python setup.py install
+```
+
+In case you want run the test suite:
+
+```shell
+$ python setup.py test
+```
+
+URLReader has a small test suite which spins a simple HTTP server in a separate process and runs against it. The test suite is also [hooked up to Github’s actions](https://github.com/verbosus/urlreader/actions), so it runs whenever there’s a push on the repo.
+
 ## Basic usage
 
 In its most basic form, URLReader takes a URL, fetches its contents in the background (so it won’t block your UI) and sends them back on the main thread to a callback you provide. The callback is a regular Python function with three arguments: `url` , `data` and `error` (of types `NSURL`, `NSData` and `NSError`). Like this:
@@ -111,10 +129,6 @@ URLReader(wait_until_done=True).fetch('http://example.org',
 ```
 
 This would make the call block until the data is received and the lambda has exited. But then again, if you just want to fetch a URL in a blocking fashion with no caches or other accoutrements, either `requests.get(url)` or `urllib.request.urlopen(url)` are probably a better fit.
-
-## Tests
-
-URLReader has a small test suite which spins a simple HTTP server in a separate process and runs against it. You can run it with the `tests.py` script in the main directory. The test suite is also [hooked up to Github’s actions](https://github.com/verbosus/urlreader/actions), so it runs whenever there’s a push on the repo.
 
 ## And that’s it
 
