@@ -131,6 +131,14 @@ class URLReaderTest(MockServerTest):
         reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse',
                      self._test_quoted_path_callback)
 
+    def _test_doubly_quoted_path_callback(self, url, data, error):
+        self.assertEqual(decode_data(data), 'Hello, Mickey%2FMouse!')
+
+    def test_doubly_quoted_path(self):
+        reader = URLReader(wait_until_done=True)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey%2FMouse',
+                     self._test_doubly_quoted_path_callback)
+
     def _test_unquoted_path_callback(self, url, data, error):
         self.assertEqual(error.localizedDescription(), 'unsupported URL')
 

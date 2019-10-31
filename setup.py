@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="urlreader",
-    version="0.1.2",
+    version="0.1.3",
     author="Antonio Cavedoni",
     author_email="antonio@cavedoni.org",
     description="URLReader: a wrapper around macOS’s NSURLSession, etc. for PyObjC apps",
