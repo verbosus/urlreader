@@ -85,14 +85,6 @@ class MockServerTest(unittest.TestCase):
         if cls.server.is_alive():
             cls.server.terminate()
 
-    def setUp(self):
-        reader = URLReader()
-        reader._reader.flushCache()
-
-    def tearDown(self):
-        reader = URLReader()
-        reader._reader.flushCache()
-
 
 class URLReaderTest(MockServerTest):
 
