@@ -90,92 +90,83 @@ class URLReaderTest(MockServerTest):
 
     """Main test suite, executes against MockServer"""
 
-    def _test_simple_url_fetch_callback(self, url, data, error):
-        # callbacks always execute on the main thread
-        self.assertTrue(NSThread.currentThread().isMainThread())
-
-        # the URL is the correct one
-        self.assertTrue(url, MOCK_SERVER_URL)
-
-        # we got some data back
-        self.assertEqual(decode_data(data), 'Hello, world')
-
     def test_simple_url_fetch(self):
-        reader = URLReader(wait_until_done=True)
-        reader.fetch(
-            MOCK_SERVER_URL,
-            self._test_simple_url_fetch_callback,
-        )
+        def callback(url, data, error):
+            # callbacks always execute on the main thread
+            self.assertTrue(NSThread.currentThread().isMainThread())
 
-    def _test_simple_url_with_path_callback(self, url, data, error):
-        self.assertEqual(decode_data(data), 'Hello, Ada!')
+            # the URL is the correct one
+            self.assertTrue(url, MOCK_SERVER_URL)
+
+            # we got some data back
+            self.assertEqual(decode_data(data), 'Hello, world')
+
+        reader = URLReader(wait_until_done=True)
+        reader.fetch(MOCK_SERVER_URL, callback)
 
     def test_simple_url_with_path_fetch(self):
-        reader = URLReader(wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Ada',
-                     self._test_simple_url_with_path_callback)
+        def callback(url, data, error):
+            self.assertEqual(decode_data(data), 'Hello, Ada!')
 
-    def _test_quoted_path_callback(self, url, data, error):
-        self.assertEqual(decode_data(data), 'Hello, Mickey%20Mouse!')
+        reader = URLReader(wait_until_done=True)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Ada', callback)
 
     def test_quoted_path(self):
-        reader = URLReader(wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse',
-                     self._test_quoted_path_callback)
+        def callback(url, data, error):
+            self.assertEqual(decode_data(data), 'Hello, Mickey%20Mouse!')
 
-    def _test_doubly_quoted_path_callback(self, url, data, error):
-        self.assertEqual(decode_data(data), 'Hello, Mickey%2FMouse!')
+        reader = URLReader(wait_until_done=True)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse', callback)
 
     def test_doubly_quoted_path(self):
-        reader = URLReader(wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey%2FMouse',
-                     self._test_doubly_quoted_path_callback)
+        def callback(url, data, error):
+            self.assertEqual(decode_data(data), 'Hello, Mickey%2FMouse!')
 
-    def _test_unquoted_path_callback(self, url, data, error):
-        self.assertEqual(error.localizedDescription(), 'unsupported URL')
+        reader = URLReader(wait_until_done=True)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey%2FMouse', callback)
 
     def test_unquoted_path(self):
-        reader = URLReader(quote_url_path=False, wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse',
-                     self._test_unquoted_path_callback)
+        def callback(url, data, error):
+            self.assertEqual(error.localizedDescription(), 'unsupported URL')
 
-    def _test_bogus_url_callback(self, url, data, error):
-        # the call timed out and we have an error
-        self.assertTrue(error is not None)
+        reader = URLReader(quote_url_path=False, wait_until_done=True)
+        reader.fetch(MOCK_SERVER_URL + '/hello/Mickey Mouse', callback)
 
     def test_bogus_url(self):
-        reader = URLReader(timeout=0.1, wait_until_done=True)
-        reader.fetch("https://www.doesnot-exist.forsure-xxx/",
-                     self._test_bogus_url_callback)
+        def callback(url, data, error):
+            # the call timed out and we have an error
+            self.assertTrue(error is not None)
 
-    def _test_timeout_request_callback(self, url, data, error):
-        # the call timed out and we have an error...
-        self.assertTrue(error is not None)
-        # ...and no data
-        self.assertEqual(data, None)
+        reader = URLReader(timeout=0.1, wait_until_done=True)
+        reader.fetch("https://www.doesnot-exist.forsure-xxx/", callback)
 
     def test_timeout_request(self):
+        def callback(url, data, error):
+            # the call timed out and we have an error...
+            self.assertTrue(error is not None)
+            # ...and no data
+            self.assertEqual(data, None)
+
         # set the timeout to some tiny amount
         reader = URLReader(timeout=0.2, wait_until_done=True)
-        reader.fetch(MOCK_SERVER_URL + '/slow',
-                     self._test_timeout_request_callback)
-
-    def _test_multiple_urls_callback(self, url, data, error):
-        self._multiple_urls_data.appendData_(data)
-        self._multiple_urls_requested_loaded += 1
-        if self._multiple_urls_requested_loaded == \
-                self._multiple_urls_requested_count:
-            data = decode_data(self._multiple_urls_data)
-            self.assertTrue(
-                'A' in data
-                and 'B' in data
-                and 'C' in data
-                and 'D' in data
-                and 'E' in data
-                and 'F' in data
-            )
+        reader.fetch(MOCK_SERVER_URL + '/slow', callback)
 
     def test_multiple_urls(self):
+        def callback(url, data, error):
+            self._multiple_urls_data.appendData_(data)
+            self._multiple_urls_requested_loaded += 1
+            if self._multiple_urls_requested_loaded == \
+                    self._multiple_urls_requested_count:
+                data = decode_data(self._multiple_urls_data)
+                self.assertTrue(
+                    'A' in data
+                    and 'B' in data
+                    and 'C' in data
+                    and 'D' in data
+                    and 'E' in data
+                    and 'F' in data
+                )
+
         urls = [
             MOCK_SERVER_URL + '/hello/A',
             MOCK_SERVER_URL + '/hello/B',
@@ -191,7 +182,7 @@ class URLReaderTest(MockServerTest):
 
         reader = URLReader()
         for url in urls:
-            reader.fetch(url, self._test_multiple_urls_callback)
+            reader.fetch(url, callback)
         while not reader.done:
             reader.continue_runloop()
 
